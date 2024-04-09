@@ -120,6 +120,7 @@ def start_detection(root,prompt):
             object_identified = understand_image(finalImage,prompt)
             if object_identified is not None:
                 print(f"Object identified: {object_identified}")
+                play_tts(object_identified)
             else:
                 print("Error: Object identification failed")
             cv2.imshow("Closest Object", finalImage)
