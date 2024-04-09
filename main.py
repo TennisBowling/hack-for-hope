@@ -34,7 +34,7 @@ def play_tts(text: str):
     play(audio)
 
 
-def understand_image(image) -> Tuple[str, str]:
+def understand_image(image, prompt) -> Tuple[str, str]:
     _, buffer = cv2.imencode('.jpg', image)
     base64_image = base64.b64encode(buffer).decode('utf-8')
 
@@ -51,7 +51,7 @@ def understand_image(image) -> Tuple[str, str]:
                 "content": [
                     {
                         "type": "text",
-                        "text": "What's this product and what is the typical pricing for this specific product? Name the company or name of product, and respond in format '{item}, {price}'."
+                        "text": prompt
                     },
                     {
                         "type": "image_url",
@@ -69,15 +69,21 @@ def understand_image(image) -> Tuple[str, str]:
 
     return response.json()['choices'][0]['message']['content']
 
-def start_detection():
-    capture = cv2.VideoCapture(2)
+def start_detection(root,prompt):
+    capture = cv2.VideoCapture(1)
     labels = []
 
     while True:
         ret, singleFrame = capture.read()
-        boundingBoxes, label, confidences = cv.detect_common_objects(singleFrame, model='yolov4-tiny', enable_gpu=False)
+        if not ret:
+            print("Error: Failed to capture frame")
+            break
+
+        resized_frame = cv2.resize(singleFrame, (640, 480))  
+
+        boundingBoxes, label, confidences = cv.detect_common_objects(resized_frame, model='yolov4-tiny', enable_gpu=False)
         
-        height, width, _ = singleFrame.shape
+        height, width, _ = resized_frame.shape
         centerX = width // 2
         centerY = height // 2
         
@@ -89,8 +95,8 @@ def start_detection():
             box_center_y = y + h // 2
             distance = ((centerX - box_center_x) ** 2 + (centerY - box_center_y) ** 2) ** 0.5
             distances_from_center.append(distance)
-            displayImage = singleFrame.copy()
-            images.append(displayImage[y:h,x:w])
+            displayImage = resized_frame.copy()
+            images.append(displayImage[y:h, x:w])
             
         if distances_from_center:
             closest_index = distances_from_center.index(min(distances_from_center))
@@ -111,17 +117,22 @@ def start_detection():
         
         if images and closest_index < len(images):
             finalImage = images[closest_index]
-
-            object_identified = understand_image(finalImage)
-            print(f"object identified: {object_identified}")
-            play_tts(object_identified)
-
-
+            object_identified = understand_image(finalImage,prompt)
+            if object_identified is not None:
+                print(f"Object identified: {object_identified}")
+            else:
+                print("Error: Object identification failed")
             cv2.imshow("Closest Object", finalImage)
+        else:
+            print("Error: No images or invalid index")
 
     capture.release()
     cv2.destroyAllWindows()
+    close_gui(root)
 
+def close_gui(root):
+    root.destroy()
+    
 def create_gui():
     root = tk.Tk()
     root.title("Object Detection GUI")
@@ -149,18 +160,25 @@ def create_gui():
     style = ttk.Style()
 
     style.configure('TCombobox', background=background_color)
-    style.configure('TCombobox.Listbox', background=background_color, font=("Arial Rounded MT Bold", 24))  # Adjust font size here
+    style.configure('TCombobox.Listbox', background=background_color, font=("Arial Rounded MT Bold", 24))  
 
     dropdown = ttk.Combobox(dropdown_frame, textvariable=dropdown_var, values=dropdown_options, font=("Arial Rounded MT Bold", 30), state="readonly")
     dropdown.set("Select Mode")
     dropdown.grid(row=0, column=1, padx=20, pady=10, ipadx=20)
 
-    start_button = tk.Button(root, text="Start Detection", font=("Arial Rounded MT Bold", 36), command=start_detection, bg="#3b7452", fg="white", bd=0, width=40, height=4)
+    def start_detection_with_mode():
+        selected_mode = dropdown_var.get()
+        if selected_mode == "Shopping":
+            prompt = "What's this product and what is the typical pricing for this specific product? Name the company or name of product, and respond in format '{item}, {price}'."
+        else:
+            prompt = "Give a description for this item"
+        start_detection(root, prompt)
+
+    start_button = tk.Button(root, text="Start Detection", font=("Arial Rounded MT Bold", 36), command=start_detection_with_mode, bg="#3b7452", fg="white", bd=0, width=40, height=4)
     start_button.pack(pady=50)
     start_button.place(relx=0.5, rely=0.75, anchor=tk.CENTER)
 
     root.mainloop()
 
-    
 if __name__ == "__main__":
     create_gui()
