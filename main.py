@@ -99,7 +99,7 @@ def understand_image(image, prompt) -> Tuple[str, str]:
 
     return response.json()['choices'][0]['message']['content']
 
-def process_after_main_loop(nr, labels, closest_index, images, prompt):
+def process_after_main_loop(nr, labels, closest_index, images, prompt,newRoot, root):
     if labels:
         closestObject = labels[0]
         print("Closest object detected:", closestObject)
@@ -124,9 +124,12 @@ def process_after_main_loop(nr, labels, closest_index, images, prompt):
             product_name, product_price = get_product(object_identified)
             tts_text = f"The product is {product_name}. It retails for around ${product_price} "
 
-        nr.destroy()
+        print(1)
+        nr.withdraw()
+        print(f"saying this: {tts_text}")
         play_tts(tts_text)
-        nr.mainloop()
+        nr.destroy()
+        create_gui()
 
 def start_detection(root, prompt):
     close_gui(root)
@@ -180,11 +183,10 @@ def start_detection(root, prompt):
             loading_label = tk.Label(newRoot, text="Response Loading...", font=("Arial Rounded MT Bold", 60), bg="#4e8c67", fg="white")
             loading_label.pack(pady=50)
             loading_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-            threading.Thread(target=process_after_main_loop, args=(nr, labels, closest_index, images, prompt)).start()
+            threading.Thread(target=process_after_main_loop, args=(nr, labels, closest_index, images, prompt,newRoot,root)).start()
+            nr.mainloop()
             break
 
-
-     
 def close_gui(root):
     root.destroy()
     
