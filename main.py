@@ -11,6 +11,27 @@ from pydub import AudioSegment
 from pydub.playback import play
 import io
 
+# returns product name and price
+def get_product(product_name: str) -> Tuple[str, float]:
+    headers = {
+        "X-RapidAPI-Key": "88a9866cc6msh2d4ffc7b51b3a5dp190657jsn80f11ebf1bc1",
+        "X-RapidAPI-Host": "real-time-product-search.p.rapidapi.com"
+    }
+
+    params = {"q": product_name, "country": "us", "language": "en", "sort_by": "BEST_MATCH", "product_condition": "NEW"}
+
+    resp = requests.get("https://real-time-product-search.p.rapidapi.com/search", headers=headers, params=params)
+    if (resp.status_code != 200) or (resp.json()["status"] != "OK"):
+        print("Error searching for price")
+        print(resp.text)
+        return
+    
+    json_resp = resp.json()
+    price_range1 = int(json_resp["data"][0]["typical_price_range"][0][1:])
+    price_range2 = int(json_resp["data"][0]["typical_price_range"][1][1:])
+
+    return (json_resp["data"][0]["product_title"], (price_range1 + price_range2) / 2)
+
 def play_tts(text: str):
     headers = {
         "Content-Type": "application/json",
@@ -115,20 +136,35 @@ def start_detection(root,prompt):
         closestObject = labels[0]
         print("Closest object detected:", closestObject)
         
-        if images and closest_index < len(images):
-            finalImage = images[closest_index]
-            object_identified = understand_image(finalImage,prompt)
-            if object_identified is not None:
-                print(f"Object identified: {object_identified}")
-            else:
-                print("Error: Object identification failed")
-            cv2.imshow("Closest Object", finalImage)
-        else:
+        if not (images and closest_index < len(images)):
             print("Error: No images or invalid index")
+            capture.release()
+            cv2.destroyAllWindows()
+            close_gui(root)
+            return 
 
-    capture.release()
-    cv2.destroyAllWindows()
-    close_gui(root)
+        finalImage = images[closest_index]
+        cv2.imshow("Closest Object", finalImage)
+        object_identified = understand_image(finalImage,prompt)
+
+        if not object_identified:
+            print("Error: object identification failed")
+            capture.release()
+            cv2.destroyAllWindows()
+            close_gui(root)
+            return 
+        
+        print(f"Object identified: {object_identified}")
+
+        tts_text = object_identified
+        
+        # Treacherous way to detect if we're in shopping mode
+        if prompt == "What's this product? Respond as if someone were making a search query for it. No other text.":
+            product_name, product_price = get_product(object_identified)
+            tts_text = f"The product is {product_name}. It retails for around ${product_price}"
+        
+        play_tts(tts_text)
+    
 
 def close_gui(root):
     root.destroy()
@@ -169,7 +205,7 @@ def create_gui():
     def start_detection_with_mode():
         selected_mode = dropdown_var.get()
         if selected_mode == "Shopping":
-            prompt = "What's this product and what is the typical pricing for this specific product? Name the company or name of product, and respond in format '{item}, {price}'."
+            prompt = "What's this product? Respond as if someone were making a search query for it. No other text."
         else:
             prompt = "Give a description for this item"
         start_detection(root, prompt)
