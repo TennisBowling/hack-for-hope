@@ -121,13 +121,13 @@ def process_after_main_loop(nr, labels, closest_index, images, prompt,newRoot, r
         if prompt == "What's this product? Respond as if someone were making a search query for it. No other text.":
             product_name, product_price = get_product(object_identified)
             tts_text = f"The product is {product_name}. It retails for around ${product_price} "
-
-        print(1)
         nr.withdraw()
         print(f"saying this: {tts_text}")
-        nr.destroy()
-        play(play_tts(tts_text))
+        tts = play_tts(tts_text)
+        play(tts)
+        newRoot.destroy()
         create_gui()
+        
 
 def start_detection(root, prompt):
     close_gui(root)
