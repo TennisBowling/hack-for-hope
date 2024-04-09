@@ -41,7 +41,7 @@ def get_product(product_name: str) -> Tuple[str, float]:
     return 
 
 
-def play_tts(text: str):
+def play_tts(text: str) -> AudioSegment:
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer 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"
@@ -59,9 +59,7 @@ def play_tts(text: str):
         print(resp.text)
         return
     
-    audio = AudioSegment.from_file(io.BytesIO(resp.content), format="mp3")
-    play(audio)
-    
+    return AudioSegment.from_file(io.BytesIO(resp.content), format="mp3")
 
 
 def understand_image(image, prompt) -> Tuple[str, str]:
@@ -127,8 +125,8 @@ def process_after_main_loop(nr, labels, closest_index, images, prompt,newRoot, r
         print(1)
         nr.withdraw()
         print(f"saying this: {tts_text}")
-        play_tts(tts_text)
         nr.destroy()
+        play(play_tts(tts_text))
         create_gui()
 
 def start_detection(root, prompt):
