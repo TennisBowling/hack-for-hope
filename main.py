@@ -120,7 +120,7 @@ def process_after_main_loop(nr, labels, closest_index, images, prompt,newRoot, r
         # Treacherous way to detect if we're in shopping mode
         if prompt == "What's this product? Respond as if someone were making a search query for it. No other text.":
             product_name, product_price = get_product(object_identified)
-            tts_text = f"The product is {product_name}. It retails for around ${product_price} "
+            tts_text = f"The product is {product_name}. It retails for around {product_price//1} dollars and {product_price%1} cents"
         nr.withdraw()
         print(f"saying this: {tts_text}")
         tts = play_tts(tts_text)
