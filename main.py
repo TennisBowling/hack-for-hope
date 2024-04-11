@@ -243,6 +243,14 @@ def create_gui():
     root.configure(bg=background_color)
     root.geometry("1500x1000")
 
+    image_path = "Describify.jpg"
+    img = Image.open(image_path)
+    img = img.resize((137, 218))
+    photo = ImageTk.PhotoImage(img)
+    image_label = tk.Label(root, image=photo, bg=background_color)
+    image_label.image = photo  
+    image_label.place(x=10, y=10)
+
     title_label = tk.Label(root, text="Object Detection", font=("Arial Rounded MT Bold", 60), bg=background_color, fg="white")
     title_label.pack(pady=50)
     title_label.place(relx=0.5, rely=0.15, anchor=tk.CENTER)
