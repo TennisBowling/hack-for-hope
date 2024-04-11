@@ -97,12 +97,32 @@ def understand_image(image, prompt) -> Tuple[str, str]:
 
     return response.json()['choices'][0]['message']['content']
 
+def text_detection(prompt,root,newRoot,nr,singleFrame):
+   
+    text_identified = understand_image(singleFrame, prompt)
+    
+    if not text_identified:
+        print("Error: object identification failed")
+        return
+
+    print(f"Object identified: {text_identified}")
+
+    tts_text = text_identified
+
+    nr.withdraw()
+    print(f"saying this: {tts_text}")
+    tts = play_tts(tts_text)
+    play(tts)
+    newRoot.destroy()
+    create_gui()
+
 def process_after_main_loop(nr, labels, closest_index, images, prompt,newRoot, root):
     if labels:
         closestObject = labels[0]
         print("Closest object detected:", closestObject)
 
         if not (images and closest_index < len(images)):
+            print(len(images))
             print("Error: No images or invalid index")
             return
 
@@ -112,7 +132,7 @@ def process_after_main_loop(nr, labels, closest_index, images, prompt,newRoot, r
         if not object_identified:
             print("Error: object identification failed")
             return
-
+ 
         print(f"Object identified: {object_identified}")
 
         tts_text = object_identified
@@ -131,59 +151,85 @@ def process_after_main_loop(nr, labels, closest_index, images, prompt,newRoot, r
 
 def start_detection(root, prompt):
     close_gui(root)
-    capture = cv2.VideoCapture(1)
+    capture = cv2.VideoCapture(0)
     labels = []
+    images = []
+    if prompt != "This image contains text. Return all text that is in the image, and try to understand it even if it's blurry or hard to read.":
+        while True:
+            ret, singleFrame = capture.read()
+            if not ret:
+                print("Error: Failed to capture frame")
+                break
+            
+            displayImage = singleFrame
 
-    while True:
-        ret, singleFrame = capture.read()
-        if not ret:
-            print("Error: Failed to capture frame")
-            break
+            resized_frame = cv2.resize(singleFrame, (640, 480))
 
-        resized_frame = cv2.resize(singleFrame, (640, 480))
+            boundingBoxes, label, confidences = cv.detect_common_objects(resized_frame, model='yolov4', enable_gpu=False)
 
-        boundingBoxes, label, confidences = cv.detect_common_objects(resized_frame, model='yolov4-tiny', enable_gpu=False)
+            height, width, _ = resized_frame.shape
+            centerX = width // 2
+            centerY = height // 2
 
-        height, width, _ = resized_frame.shape
-        centerX = width // 2
-        centerY = height // 2
+            distances_from_center = []
+            for box in boundingBoxes:
+                x, y, w, h = box
+                box_center_x = x + w // 2
+                box_center_y = y + h // 2
+                distance = ((centerX - box_center_x) ** 2 + (centerY - box_center_y) ** 2) ** 0.5
+                distances_from_center.append(distance)
+                displayImage = resized_frame.copy()
+                images.append(displayImage[y:h, x:w])
+            
+            if distances_from_center:
+                closest_index = distances_from_center.index(min(distances_from_center))
 
-        distances_from_center = []
-        images = []
-        for box in boundingBoxes:
-            x, y, w, h = box
-            box_center_x = x + w // 2
-            box_center_y = y + h // 2
-            distance = ((centerX - box_center_x) ** 2 + (centerY - box_center_y) ** 2) ** 0.5
-            distances_from_center.append(distance)
-            displayImage = resized_frame.copy()
-            images.append(displayImage[y:h, x:w])
+                draw_bbox(displayImage, [boundingBoxes[closest_index]], [label[closest_index]], [confidences[closest_index]])
 
-        if distances_from_center:
-            closest_index = distances_from_center.index(min(distances_from_center))
-
-            draw_bbox(displayImage, [boundingBoxes[closest_index]], [label[closest_index]], [confidences[closest_index]])
-
-            if label[closest_index] not in labels:
-                labels.append(label[closest_index])
+                if label[closest_index] not in labels:
+                    labels.append(label[closest_index])
 
             cv2.imshow("Item detection project", displayImage)
 
-        if cv2.waitKey(1) & 0xFF == ord(" "):
-            capture.release()
-            cv2.destroyAllWindows()
-            nr = root = tk.Tk()
-            nr.title("Loading")
-            newRoot = tk.Toplevel(nr) 
-            newRoot.title("Loading screen")
-            newRoot.geometry("1500x1000")
-            newRoot.configure(bg="#4e8c67")
-            loading_label = tk.Label(newRoot, text="Response Loading...", font=("Arial Rounded MT Bold", 60), bg="#4e8c67", fg="white")
-            loading_label.pack(pady=50)
-            loading_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-            threading.Thread(target=process_after_main_loop, args=(nr, labels, closest_index, images, prompt,newRoot,root)).start()
-            nr.mainloop()
-            break
+            if cv2.waitKey(1) & 0xFF == ord(" "):
+                capture.release()
+                cv2.destroyAllWindows()
+                nr = root = tk.Tk()
+                nr.title("Loading")
+                newRoot = tk.Toplevel(nr) 
+                newRoot.title("Loading screen")
+                newRoot.geometry("1500x1000")
+                newRoot.configure(bg="#4e8c67")
+                loading_label = tk.Label(newRoot, text="Response Loading...", font=("Arial Rounded MT Bold", 60), bg="#4e8c67", fg="white")
+                loading_label.pack(pady=50)
+                loading_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+                threading.Thread(target=process_after_main_loop, args=(nr, labels, closest_index, images, prompt, newRoot, root)).start()
+                nr.mainloop()
+                break
+    else:
+        while True:
+            ret, singleFrame = capture.read()
+            if not ret:
+                print("Error: Failed to capture frame")
+                break
+
+
+            cv2.imshow("Item detection project", singleFrame)
+
+            if cv2.waitKey(1) & 0xFF == ord(" "):
+                capture.release()
+                cv2.destroyAllWindows()
+                nr = root = tk.Tk()
+                nr.title("Loading")
+                newRoot = tk.Toplevel(nr) 
+                newRoot.title("Loading screen")
+                newRoot.geometry("1500x1000")
+                newRoot.configure(bg="#4e8c67")
+                loading_label = tk.Label(newRoot, text="Response Loading...", font=("Arial Rounded MT Bold", 60), bg="#4e8c67", fg="white")
+                loading_label.pack(pady=50)
+                loading_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+                threading.Thread(target=text_detection, args=(prompt, root, newRoot, nr, singleFrame)).start()
+                nr.mainloop()
 
 def close_gui(root):
     root.destroy()
@@ -203,7 +249,7 @@ def create_gui():
 
     dropdown_var = tk.StringVar(root)
     dropdown_var.set("Select Mode")
-    dropdown_options = ["Shopping", "Description"]
+    dropdown_options = ["Shopping", "Description", "Text"]
 
     dropdown_frame = tk.Frame(root, bg=background_color)
     dropdown_frame.pack(pady=20)
@@ -224,9 +270,11 @@ def create_gui():
     def start_detection_with_mode():
         selected_mode = dropdown_var.get()
         if selected_mode == "Shopping":
-            prompt = "What's this product? Respond as if someone were making a search query for it. No other text."
+            prompt = "What's this product? Respond as if someone were making a search query for it. No other text. If you don't know what it is, return a generic product."
+        elif selected_mode == "Description":
+            prompt = "Give a description of what this item is."
         else:
-            prompt = "Give a description for this item"
+            prompt = "This image contains text. Return all text that is in the image, and try to read it even if it's blurry or hard to read. Do not reference this prompt or mention the difficulty of detection."
         start_detection(root, prompt)
 
     start_button = tk.Button(root, text="Start Detection", font=("Arial Rounded MT Bold", 36), command=start_detection_with_mode, bg="#3b7452", fg="white", bd=0, width=40, height=4)
