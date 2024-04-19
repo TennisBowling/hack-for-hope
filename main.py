@@ -99,22 +99,37 @@ def understand_image(image, prompt) -> Tuple[str, str]:
 
 def text_detection(prompt,root,newRoot,nr,singleFrame):
    
-    text_identified = understand_image(singleFrame, prompt)
-    
-    if not text_identified:
-        print("Error: object identification failed")
-        return
+    if prompt == "This image contains text. Return all text that is in the image, and try to read it even if it's blurry or hard to read. Do not reference this prompt or mention the difficulty of detection.":
+        text_identified = understand_image(singleFrame, prompt)
+        
+        if not text_identified:
+            print("Error: object identification failed")
+            return
 
-    print(f"Object identified: {text_identified}")
+        print(f"Object identified: {text_identified}")
 
-    tts_text = text_identified
+        tts_text = text_identified
 
-    nr.withdraw()
-    print(f"saying this: {tts_text}")
-    tts = play_tts(tts_text)
-    play(tts)
-    newRoot.destroy()
-    create_gui()
+        nr.withdraw()
+        print(f"saying this: {tts_text}")
+        tts = play_tts(tts_text)
+        play(tts)
+        newRoot.destroy()
+        create_gui()
+    else:   # this is ingredient/food mode
+        food_response = understand_image(singleFrame, prompt)
+        
+        if not food_response:
+            print("Error: Food mode failed.")
+            return
+
+        nr.withdraw()
+        print(f"saying this: {food_response}")
+        tts = play_tts(food_response)
+        play(tts)
+        newRoot.destroy()
+        create_gui()
+       
 
 def process_after_main_loop(nr, labels, closest_index, images, prompt,newRoot, root):
     if labels:
@@ -149,12 +164,12 @@ def process_after_main_loop(nr, labels, closest_index, images, prompt,newRoot, r
         create_gui()
         
 
-def start_detection(root, prompt):
+def start_detection(root, prompt, onlypic: bool):
     close_gui(root)
     capture = cv2.VideoCapture(0)
     labels = []
     images = []
-    if prompt != "This image contains text. Return all text that is in the image, and try to understand it even if it's blurry or hard to read.":
+    if not onlypic:
         while True:
             ret, singleFrame = capture.read()
             if not ret:
@@ -206,7 +221,7 @@ def start_detection(root, prompt):
                 threading.Thread(target=process_after_main_loop, args=(nr, labels, closest_index, images, prompt, newRoot, root)).start()
                 nr.mainloop()
                 break
-    else:
+    else:   # just take pic and send to api. could be either food or text mode
         while True:
             ret, singleFrame = capture.read()
             if not ret:
@@ -257,7 +272,7 @@ def create_gui():
 
     dropdown_var = tk.StringVar(root)
     dropdown_var.set("Select Mode")
-    dropdown_options = ["Shopping", "Description", "Text"]
+    dropdown_options = ["Shopping", "Description", "Text", "Food"]
 
     dropdown_frame = tk.Frame(root, bg=background_color)
     dropdown_frame.pack(pady=20)
@@ -279,11 +294,16 @@ def create_gui():
         selected_mode = dropdown_var.get()
         if selected_mode == "Shopping":
             prompt = "What's this product? Respond as if someone were making a search query for it. No other text. If you don't know what it is, return a generic product."
+            start_detection(root, prompt, False)    # false for not only taking the picture
         elif selected_mode == "Description":
             prompt = "Give a description of what this item is."
+            start_detection(root, prompt, False)
+        elif selected_mode == "Food":
+            prompt = "This image has ingredients. Tell me what they are, as well as possible dishes I can make with them. Return your response in this format: There are {list of ingredients}. You could make {list of dishes} with them."
+            start_detection(root, prompt, True)     # only take pic
         else:
             prompt = "This image contains text. Return all text that is in the image, and try to read it even if it's blurry or hard to read. Do not reference this prompt or mention the difficulty of detection."
-        start_detection(root, prompt)
+            start_detection(root, prompt, True)
 
     start_button = tk.Button(root, text="Start Detection", font=("Arial Rounded MT Bold", 36), command=start_detection_with_mode, bg="#3b7452", fg="white", bd=0, width=40, height=4)
     start_button.pack(pady=50)
