@@ -292,7 +292,7 @@ def create_gui():
             prompt = "Give a description of what this item is."
             start_detection(root, prompt, False)
         elif selected_mode == "Recipe":
-            prompt = "This image has ingredients. Tell me what they are, as well as possible dishes I can make with them. Return your response in this format: There are {list of ingredients}. You could make {list of dishes} with them. Then also tell the recipie for one of the dishes you mention"
+            prompt = "This image has ingredients. Tell me what they are, as well as possible dishes I can make with them. Return your response in this format: There are {list of ingredients}. You could make {list of dishes} with them. Then also tell the recipe for one of the dishes you mention."
             start_detection(root, prompt, True)     # only take pic
         else:
             prompt = "This image contains text. Return all text that is in the image, and try to read it even if it's blurry or hard to read. Do not reference this prompt or mention the difficulty of detection. Translate to english if necessary."
